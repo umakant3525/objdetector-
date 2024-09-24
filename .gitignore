@@ -1,0 +1,39 @@
+# Python Bytecode
+__pycache__/
+*.py[cod]
+
+# Virtual Environment
+venv/
+env/
+.env/
+
+# Jupyter Notebook Checkpoints
+.ipynb_checkpoints
+
+# Local configuration files
+*.local
+
+# Logs
+*.log
+
+# Flask specific files
+instance/
+*.sqlite3
+
+# Compiled C extensions
+*.so
+
+# macOS system files
+.DS_Store
+
+# IDE files
+.vscode/
+.idea/
+
+# Miscellaneous
+*.egg-info/
+dist/
+build/
+*.egg
+
+node_modules

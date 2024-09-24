@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>YOLOv8 Object Detection</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            text-align: center;
+            background-color: #f9f9f9;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            color: #4CAF50;
+            margin-bottom: 20px;
+        }
+
+        #imageUpload {
+            padding: 10px;
+            margin: 20px auto;
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            cursor: pointer;
+            background-color: white;
+        }
+
+        #uploadButton {
+            display: inline-block;
+            margin: 20px auto;
+            padding: 12px 24px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        #uploadButton:hover {
+            background-color: #45a049;
+        }
+
+        #comparisonContainer {
+            position: relative;
+            max-width: 1600px;
+            margin: 20px auto;
+            overflow: hidden;
+        }
+
+        #uploadedImage, #detectedImage {
+            display: none;
+            max-width: 100%;
+            height: auto;
+        }
+
+        #detectedImage {
+            position: absolute;
+            top: 0;
+            left: 0;
+            transition: opacity 0.5s ease; /* Smooth transition for opacity */
+        }
+
+        #slider {
+            width: 100%;
+            position: relative;
+            cursor: ew-resize;
+            height: 50px;
+            background: rgba(0, 0, 0, 0.2);
+            margin-top: -5px; /* Overlap with the images */
+        }
+
+        #verticalLine {
+            position: absolute;
+            width: 3px; /* Width of the line */
+            background-color: red; /* Color of the line */
+            height: 100%; /* Full height of the slider */
+            left: 50%; /* Initially position it in the center */
+            transform: translateX(-50%); /* Center the line */
+            transition: left 0.5s ease; /* Smooth transition for movement */
+        }
+
+        #result {
+            margin-top: 20px;
+            padding: 20px;
+            background-color: #fff;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            max-width: 600px;
+            margin: 20px auto;
+        }
+
+        pre {
+            text-align: left;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            color: #333;
+            font-size: 1rem;
+        }
+
+        footer {
+            margin-top: 40px;
+            font-size: 0.9rem;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <h1>Object Detection using YOLOv8</h1>
+    <label for="imageUpload" id="uploadLabel">
+        <input type="file" id="imageUpload" accept="image/*" style="display: none;">
+        <span style="padding: 12px 20px; background-color: #4CAF50; color: white; border-radius: 8px; cursor: pointer;">
+            Choose Image
+        </span>
+    </label>
+    <button id="uploadButton" style="display: none;">Object Detection</button>
+
+    <div id="comparisonContainer" style="display: none;">
+        <img id="uploadedImage" src="#" alt="Uploaded Image"/>
+        <img id="detectedImage" src="#" alt="Detected Objects"/>
+        <div id="slider">
+            <div id="verticalLine"></div> <!-- Vertical line for comparison -->
+        </div>
+    </div>
+
+    <div id="result"></div>
+
+    <footer>
+        <p>Powered by YOLOv8 Object Detection</p>
+    </footer>
+
+    <script>
+        const imageUpload = document.getElementById('imageUpload');
+        const uploadedImage = document.getElementById('uploadedImage');
+        const detectedImage = document.getElementById('detectedImage');
+        const resultDiv = document.getElementById('result');
+        const uploadButton = document.getElementById('uploadButton');
+        const comparisonContainer = document.getElementById('comparisonContainer');
+        const slider = document.getElementById('slider');
+        const verticalLine = document.getElementById('verticalLine');
+
+        let file = null;
+
+        imageUpload.addEventListener('change', () => {
+            file = imageUpload.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    uploadedImage.src = e.target.result;
+                    uploadedImage.style.display = 'block';
+                    uploadButton.style.display = 'inline-block';
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+
+        uploadButton.addEventListener('click', () => {
+            const formData = new FormData();
+            formData.append('image', file);
+
+            // Start the slider animation
+            let sliderProgress = 0;
+            const interval = setInterval(() => {
+                sliderProgress += 5; // Increase progress
+                verticalLine.style.left = `${sliderProgress}%`;
+
+                if (sliderProgress >= 100) {
+                    clearInterval(interval); // Stop when at 100%
+                }
+            }, 100); // Update every 100ms
+
+            fetch('/detect', {
+                method: 'POST',
+                body: formData,
+            })
+            .then(response => response.json())
+            .then(data => {
+                clearInterval(interval); // Clear progress interval if detection is done
+                verticalLine.style.left = '100%'; // Set line to end after processing
+                if (data.error) {
+                    resultDiv.innerHTML = `<p style="color:red;">Error: ${data.error}</p>`;
+                } else {
+                    detectedImage.src = `/processed/${data.processed_image}`;
+                    detectedImage.style.display = 'block';
+                    comparisonContainer.style.display = 'block';
+
+                    const detections = data.detections;
+                    resultDiv.innerHTML = '<h2>Detections:</h2><pre>' + JSON.stringify(detections, null, 2) + '</pre>';
+                }
+            })
+            .catch(error => {
+                resultDiv.innerHTML = `<p style="color:red;">Error: ${error.message}</p>`;
+            });
+        });
+
+        // Slider functionality for moving the line
+        slider.addEventListener('mousemove', (event) => {
+            const rect = slider.getBoundingClientRect();
+            const x = event.clientX - rect.left; // x position within the slider
+            const width = rect.width; // width of the slider
+            const percentage = (x / width) * 100; // calculate percentage
+
+            // Adjust the detected image opacity based on the slider position
+            detectedImage.style.opacity = percentage / 100; // Change opacity for transition
+            verticalLine.style.left = `${percentage}%`; // Move vertical line
+
+            // Set height of the vertical line to match the detected image height
+            verticalLine.style.height = `${detectedImage.clientHeight}px`;
+        });
+    </script>
+</body>
+</html>
